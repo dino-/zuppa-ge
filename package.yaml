@@ -54,6 +54,7 @@ dependencies:
 library:
   source-dirs: src/lib
   dependencies:
+  - microlens-platform
   - random
 
 executables:
