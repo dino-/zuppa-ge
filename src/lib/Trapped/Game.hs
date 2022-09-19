@@ -32,16 +32,16 @@ data GameData = GameData
 makeLenses ''GameData
 
 
-adjustScandal :: Scandal -> GameData -> GameData
-adjustScandal adj = gdScandal +~ adj
+adjustScandal :: Int -> GameData -> GameData
+adjustScandal adj = gdScandal +~ Scandal adj
 
 
-adjustObsession :: Obsession -> GameData -> GameData
-adjustObsession adj = gdObsession +~ adj
+adjustObsession :: Int -> GameData -> GameData
+adjustObsession adj = gdObsession +~ Obsession adj
 
 
-adjustFoodStores :: FoodStores -> GameData -> GameData
-adjustFoodStores adj = gdFoodStores +~ adj
+adjustFoodStores :: Int -> GameData -> GameData
+adjustFoodStores adj = gdFoodStores +~ FoodStores adj
 
 
 initialData :: GameData
@@ -51,16 +51,16 @@ data GameState
   = SInitGame
   | SStartTurn GameData
   | SDesperation GameData
-  -- | SPeeking
-  -- | SAntics
+  | SPeeking GameData
+  | SAntics GameData
   | SEnded
   deriving (Show, Eq)
 
 data GameEvent
   = ENewTurn Roll
   | EDesperation Roll
-  -- | EPeeking
-  -- | EAntics
+  | EPeeking Roll
+  | EAntics Roll
   | EEndConditions
   deriving (Show, Eq)
 
@@ -76,6 +76,12 @@ evalGame SInitGame (ENewTurn roll) =
 evalGame (SStartTurn gd) (EDesperation roll) = do
   pure . SDesperation . (gdRollHistory %~ (roll :)) $ gd
 
+evalGame (SStartTurn gd) (EPeeking roll) = do
+  pure . SPeeking . (gdRollHistory %~ (roll :)) $ gd
+
+evalGame (SStartTurn gd) (EAntics roll) = do
+  pure . SAntics . (gdRollHistory %~ (roll :)) $ gd
+
 evalGame (SStartTurn gd) EEndConditions = do
   -- Display something final?
   pure SEnded
@@ -83,9 +89,24 @@ evalGame (SStartTurn gd) EEndConditions = do
 evalGame (SDesperation gd) (ENewTurn roll) = do
   newGd <- desperationLookup gd roll
   pure $ SStartTurn newGd
-  -- pure . SStartTurn . (gdRollHistory %~ (roll :)) $ gd
 
 evalGame (SDesperation gd) EEndConditions = do
+  -- Display something final?
+  pure SEnded
+
+evalGame (SPeeking gd) (ENewTurn roll) = do
+  newGd <- peekingLookup gd roll
+  pure $ SStartTurn newGd
+
+evalGame (SPeeking gd) EEndConditions = do
+  -- Display something final?
+  pure SEnded
+
+evalGame (SAntics gd) (ENewTurn roll) = do
+  newGd <- anticsLookup gd roll
+  pure $ SStartTurn newGd
+
+evalGame (SAntics gd) EEndConditions = do
   -- Display something final?
   pure SEnded
 
@@ -125,23 +146,77 @@ desperationLookup oldGd roll = do
   (msg, adjustedGd) <- case roll of
     Roll 1 -> pure
       ( Message "Rats. Rats in your basement"
-      , (adjustFoodStores $ FoodStores (-1)) gd )
+      , adjustFoodStores (-1) gd )
     Roll 2 -> pure
       ( Message "Your dogs have eyes as big as saucers. Or dinner plates."
-      , (adjustFoodStores $ FoodStores (-2)) gd )
+      , adjustFoodStores (-2) gd )
     Roll 3 -> do
       eatTheDuckling <- ynChoice $ Message "You find an ugly duckling. It's sad. Do you eat it?"
       pure $ if eatTheDuckling
-        then (Message "That was delicious!", (adjustFoodStores $ FoodStores 1) gd)
-        else (Message "Another mouth to feed.", (adjustFoodStores $ FoodStores (-1)) gd)
+        then (Message "That was delicious!", adjustFoodStores 1 gd)
+        else (Message "Another mouth to feed.", adjustFoodStores (-1) gd)
     Roll 4 -> pure
       ( Message "You write letters to your friends. No help comes."
-      , (adjustScandal $ Scandal 1) gd )
+      , adjustScandal 1 gd )
     Roll 5 -> pure (Message "You play solitaire.", gd)
     Roll 6 -> pure
       ( Message "More of your food spoils. How long can this go on?"
-      , (adjustFoodStores $ FoodStores (-1)) gd )
+      , adjustFoodStores (-1) gd )
     _ -> pure (Message "not yet implemented", gd)
+  displayMsg msg adjustedGd
+  pure adjustedGd
+
+
+peekingLookup :: GameData -> Roll -> IO GameData
+peekingLookup oldGd roll = do
+  let gd = gdRollHistory %~ (roll :) $ oldGd
+  let (msg, adjustedGd) = case roll of
+        Roll 1 ->
+          ( Message "A little matchstick girl dies on your lawn. In front of him."
+          , (adjustObsession (-1)) . (adjustScandal 1) $ gd )
+        Roll 2 ->
+          ( Message "He's having a portrait done of himself. On your LAWN."
+          , adjustScandal 1 gd )
+        Roll 3 ->
+          ( Message "He's hired a small orchestra to blast music at your house."
+          , adjustScandal 2 gd )
+        Roll 4 ->
+          ( Message "A new face wanders past."
+          , adjustObsession (-1) gd )
+        Roll 5 ->
+          ( Message "He's talking to your neighbours about you."
+          , adjustObsession 1 gd )
+        Roll 6 ->
+          ( Message "He catches a glimpse of you."
+          , adjustFoodStores 1 gd )
+        _ -> (Message "not yet implemented", gd)
+  displayMsg msg adjustedGd
+  pure adjustedGd
+
+
+anticsLookup :: GameData -> Roll -> IO GameData
+anticsLookup oldGd roll = do
+  let gd = gdRollHistory %~ (roll :) $ oldGd
+  let (msg, adjustedGd) = case roll of
+        Roll 1 ->
+          ( Message "He's naked. He claims the clothes are visible."
+          , adjustScandal 2 gd )
+        Roll 2 ->
+          ( Message "He's shoving letters through your door. Stack of them."
+          , adjustObsession (-1) gd )
+        Roll 3 ->
+          ( Message "He's weeping and howling, rolling about on the grass."
+          , adjustScandal 1 . adjustObsession (-1) $ gd )
+        Roll 4 ->
+          ( Message "He stamps on a parcel intended for you."
+          , adjustFoodStores (-1) gd )
+        Roll 5 ->
+          ( Message "He's punching the house and crying about it."
+          , adjustObsession (-1) gd )
+        Roll 6 ->
+          ( Message "He puts his mouth to the letterbox and screams."
+          , adjustScandal 1 gd )
+        _ -> (Message "not yet implemented", gd)
   displayMsg msg adjustedGd
   pure adjustedGd
 
@@ -163,7 +238,7 @@ endConditionsMet gd
   | gd ^. gdScandal >= Scandal 10 = displayMsg (Message "The pressure and mockery from society reaches such heights that you decide to sell the house. Hans moves in after you leave and squats there.") gd >> pure True
   | gd ^. gdObsession < Obsession 1 = displayMsg (Message "Hans finally loses interest in you and finds another unattainable person to chase. Victory. He does, however, write a thinly veiled short story about you. It's not flattering.") gd >> pure True
   | gd ^. gdFoodStores < FoodStores 1 = displayMsg (Message "You run out of food and starve before Hans relents. The funeral is tasteful. He does not attend.") gd >> pure True
-  | hasItBeenFiveWeeks $ gd ^. gdRollHistory = displayMsg (Message "Victory. Hans is dragged away kicking and screaming by an apologetic relative, nurse or member of the constabulary.") gd >> pure True
+  | hasItBeenFiveWeeks $ gd ^. gdRollHistory = displayMsg (Message "After five harrowing weeks, victory. Hans is dragged away kicking and screaming by an apologetic relative, nurse or member of the constabulary.") gd >> pure True
   | otherwise = pure False
 
 
@@ -176,8 +251,28 @@ gameLoop state = do
       ec <- endConditionsMet gd
       if ec
         then pure $ Just EEndConditions
-        else Just. EDesperation <$> rollDie
+        else do
+          let roll = gd ^. gdRollHistory . to head
+          let eventConstructor = case roll of
+                Roll 1 -> EDesperation
+                Roll 2 -> EDesperation
+                Roll 3 -> EPeeking
+                Roll 4 -> EPeeking
+                Roll 5 -> EAntics
+                Roll 6 -> EAntics
+                _ -> EDesperation
+          pure . Just . eventConstructor $ roll
     SDesperation gd -> do
+      ec <- endConditionsMet gd
+      if ec
+        then pure $ Just EEndConditions
+        else Just . ENewTurn <$> rollDie
+    SPeeking gd -> do
+      ec <- endConditionsMet gd
+      if ec
+        then pure $ Just EEndConditions
+        else Just . ENewTurn <$> rollDie
+    SAntics gd -> do
       ec <- endConditionsMet gd
       if ec
         then pure $ Just EEndConditions
