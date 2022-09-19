@@ -47,6 +47,7 @@ adjustFoodStores adj = gdFoodStores +~ FoodStores adj
 initialData :: GameData
 initialData = GameData (Scandal 0) (Obsession 10) (FoodStores 10) []
 
+
 data GameState
   = SInitGame
   | SStartTurn GameData
@@ -82,36 +83,19 @@ evalGame (SStartTurn gd) (EPeeking roll) = do
 evalGame (SStartTurn gd) (EAntics roll) = do
   pure . SAntics . (gdRollHistory %~ (roll :)) $ gd
 
-evalGame (SStartTurn gd) EEndConditions = do
-  -- Display something final?
-  pure SEnded
-
 evalGame (SDesperation gd) (ENewTurn roll) = do
   newGd <- desperationLookup gd roll
   pure $ SStartTurn newGd
-
-evalGame (SDesperation gd) EEndConditions = do
-  -- Display something final?
-  pure SEnded
 
 evalGame (SPeeking gd) (ENewTurn roll) = do
   newGd <- peekingLookup gd roll
   pure $ SStartTurn newGd
 
-evalGame (SPeeking gd) EEndConditions = do
-  -- Display something final?
-  pure SEnded
-
 evalGame (SAntics gd) (ENewTurn roll) = do
   newGd <- anticsLookup gd roll
   pure $ SStartTurn newGd
 
-evalGame (SAntics gd) EEndConditions = do
-  -- Display something final?
-  pure SEnded
-
-evalGame _ EEndConditions = do
-  pure SEnded
+evalGame _ EEndConditions = pure SEnded
 
 evalGame state _ = pure state
 
