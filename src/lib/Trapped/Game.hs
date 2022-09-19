@@ -26,7 +26,7 @@ data GameData = GameData
   , _gdFoodStores :: FoodStores
   , _gdRollHistory :: [Roll]
   }
-  deriving Show
+  deriving (Eq, Show)
 
 makeLenses ''GameData
 
@@ -51,6 +51,53 @@ data State
   | Ended
   deriving Show
 
+-- data State a
+--   = Init
+--   | Playing
+--   | NeedInput (IO a)
+--   | Ended
+--   deriving Show
+
+data GameState
+  = SInitGame
+  | SStartTurn GameData
+  | SDesperation GameData
+  | SPeeking
+  | SAntics
+  | SEnded
+  deriving (Show, Eq)
+
+data GameEvent
+  = ENewTurn
+  | EDesperation
+  | EPeeking
+  | EAntics
+  | EEndConditions
+  deriving (Show, Eq)
+
+
+evalGame :: GameState -> GameEvent -> IO GameState
+
+evalGame SInitGame ENewTurn =
+  pure $ SStartTurn initialData
+
+evalGame (SStartTurn gd) EDesperation = do
+  pure $ SDesperation gd
+
+evalGame (SStartTurn gd) EEndConditions = do
+  -- Display something final?
+  pure SEnded
+
+evalGame (SDesperation gd) ENewTurn = do
+  pure $ SStartTurn gd
+
+evalGame (SDesperation gd) EEndConditions = do
+  -- Display something final?
+  pure SEnded
+
+evalGame state _ = pure state
+
+
 newtype Message = Message String
   deriving Show
 
@@ -64,20 +111,6 @@ gameContinuing st@(Playing gd)
   | otherwise = pure st
 
 
-hasItBeenFiveWeeks :: [Roll] -> Bool
-hasItBeenFiveWeeks l = length l >= 3 && (all (== Roll 5) . take 3 $ l)
-
-
-rollDie :: State -> IO State
-rollDie st@Ended = pure st
-rollDie (Playing gd) = do
-  newRoll <- randomRIO (Roll 1, Roll 6)
-  let newData = gdRollHistory %~ (newRoll :) $ gd
-  if hasItBeenFiveWeeks $ newData ^. gdRollHistory
-    then displayMsg (Message "Victory. Hans is dragged away kicking and screaming by an apologetic relative, nurse or member of the constabulary.") >> pure Ended
-    else pure $ Playing newData
-
-
 -- FIXME
 ynChoice :: Message -> IO Bool
 ynChoice (Message s) = do
@@ -89,13 +122,13 @@ displayMsg :: Message -> IO ()
 displayMsg (Message s) = putStrLn s
 
 
-evalEvent :: State -> IO State
+-- evalEvent :: State -> IO State
 
-evalEvent st@Ended = pure st
+-- evalEvent st@Ended = pure st
 
-evalEvent st@(Playing gd)
-  | gd ^. gdRollHistory . to head <= Roll 2 = rollDie st >>= desperationLookup
-  | otherwise = rollDie st >>= desperationLookup
+-- evalEvent st@(Playing gd)
+--   | gd ^. gdRollHistory . to head <= Roll 2 = rollDie st >>= desperationLookup
+--   | otherwise = rollDie st >>= desperationLookup
 
 
 desperationLookup :: State -> IO State
@@ -124,15 +157,61 @@ desperationLookup (Playing gd) = do
 
 
 startGame :: IO ()
-startGame = gameLoop . Playing $ initialData
+-- startGame = gameLoop initialData
+startGame = undefined
 
 
-gameLoop :: State -> IO ()
+-- rollDie :: State -> IO State
+-- rollDie st@Ended = pure st
+-- rollDie (Playing gd) = do
+--   newRoll <- randomRIO (Roll 1, Roll 6)
+--   let newData = gdRollHistory %~ (newRoll :) $ gd
+--   if hasItBeenFiveWeeks $ newData ^. gdRollHistory
+--     then displayMsg (Message "Victory. Hans is dragged away kicking and screaming by an apologetic relative, nurse or member of the constabulary.") >> pure Ended
+--     else pure $ Playing newData
 
-gameLoop st@(Playing _) = do
-  putStrLn "---"
-  newState <- rollDie st >>= evalEvent >>= gameContinuing
-  print newState
-  gameLoop newState
 
-gameLoop Ended = pure ()
+-- rollDie :: GameData -> IO GameData
+-- rollDie gd = do
+--   newRoll <- randomRIO (Roll 1, Roll 6)
+--   let newData = gdRollHistory %~ (newRoll :) $ gd
+--   if hasItBeenFiveWeeks $ newData ^. gdRollHistory
+--     then displayMsg (Message "Victory. Hans is dragged away kicking and screaming by an apologetic relative, nurse or member of the constabulary.") >> pure (gdState .~ Ended newData)
+--     else pure $ gdState .~ Playing newData
+
+
+-- rollDie :: IO Roll
+-- rollDie = randomRIO (Roll 1, Roll 6)
+--   let newData = gdRollHistory %~ (newRoll :) $ gd
+--   if hasItBeenFiveWeeks $ newData ^. gdRollHistory
+--     then displayMsg (Message "Victory. Hans is dragged away kicking and screaming by an apologetic relative, nurse or member of the constabulary.") >> pure (gdState .~ Ended newData)
+--     else pure $ gdState .~ Playing newData
+
+
+-- hasItBeenFiveWeeks :: [Roll] -> Bool
+-- hasItBeenFiveWeeks rolls = length rolls >= 3 && (all (== Roll 5) . take 3 $ rolls)
+
+
+-- fiveWeekCheck :: GameData -> GameData
+-- fiveWeekCheck gd =
+--   if length rolls >= 3 && (all (== Roll 5) . take 3 $ rolls)
+--     then (gdState .~ Ended) . (gdMessage .~ (Message "Victory. Hans is dragged away kicking and screaming by an apologetic relative, nurse or member of the constabulary.")) $ gd
+--     else gdState .~ Playing gd
+--   where rolls = gd ^. gdRollHistory
+
+
+-- gameLoop :: GameData -> IO ()
+
+-- gameLoop gd = do
+--   case gd ^. gdState of
+--     Init -> do
+--       roll <- rollDie
+--       let newGd = fiveWeekCheck $ gdRollHistory %~ (roll :) gd
+--       gameLoop newGd
+--     Playing -> evalEvent gd
+--     Ended -> putStrLn $ gd ^. gdMessage
+
+--   putStrLn "---"
+--   newState <- rollDie st >>= evalEvent >>= gameContinuing
+--   print newState
+--   gameLoop newState
