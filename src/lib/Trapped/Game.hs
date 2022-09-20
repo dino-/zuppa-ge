@@ -66,10 +66,7 @@ data GameEvent
   deriving (Show, Eq)
 
 
-type FSM s e = s -> e -> IO s
-
-
-evalGame :: FSM GameState GameEvent
+evalGame :: GameState -> GameEvent -> IO GameState
 
 evalGame SInitGame (ENewTurn roll) =
   pure . SStartTurn . (gdRollHistory %~ (roll :)) $ initialData
