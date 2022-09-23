@@ -1,4 +1,4 @@
-name: trapped-with-hans
+name: zuppa-ge
 version: '1.0'
 # synopsis:
 # description:
@@ -14,7 +14,7 @@ extra-source-files:
 - README.md
 - stack.yaml
 
-github: dino-/trapped-with-hans
+github: dino-/zuppa-ge
 
 ghc-options:
 - -fwarn-tabs
@@ -60,19 +60,19 @@ library:
 executables:
   trapped-with-hans:
     source-dirs: src/app
-    main: Main.hs
+    main: trapped-with-hans.hs
     dependencies:
-    - trapped-with-hans
+    - zuppa-ge
 
 tests:
-  trapped-with-hans-test-suite:
+  zuppa-ge-test-suite:
     source-dirs: src/test
     main: Main.hs
     dependencies:
-    - trapped-with-hans
     - tasty
     - tasty-hunit
     - tasty-quickcheck
+    - zuppa-ge
     ghc-options:
     - -rtsopts
     - -threaded

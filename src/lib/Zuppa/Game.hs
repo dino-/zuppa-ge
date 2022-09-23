@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Trapped.Game
+module Zuppa.Game
   ( startGame
   ) where
 

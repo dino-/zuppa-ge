@@ -1,4 +1,4 @@
-# trapped-with-hans
+# zuppa-ge
 
 
 ## Synopsis
@@ -9,7 +9,7 @@
 
 ## Getting source
 
-Source code is available from github at the [trapped-with-hans](https://github.com/dino-/trapped-with-hans) project page.
+Source code is available from github at the [zuppa-ge](https://github.com/dino-/zuppa-ge) project page.
 
 
 ## Contact
