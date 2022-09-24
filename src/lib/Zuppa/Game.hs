@@ -5,8 +5,9 @@ module Zuppa.Game
   ) where
 
 import Lens.Micro.Platform ( (+~), (%~), (^.), makeLenses, to )
-import System.Random ( Random, randomRIO )
 import Text.Printf ( printf )
+
+import Zuppa.Dice ( Roll (..), rollDie )
 
 
 newtype Scandal = Scandal Int
@@ -17,9 +18,6 @@ newtype Obsession = Obsession Int
 
 newtype FoodStores = FoodStores Int
   deriving (Eq, Num, Ord, Show)
-
-newtype Roll = Roll Int
-  deriving (Eq, Num, Ord, Random, Show)
 
 data GameData = GameData
   { _gdScandal :: Scandal
@@ -202,10 +200,6 @@ anticsLookup oldGd roll = do
   display msg
   displayGameData adjustedGd
   pure adjustedGd
-
-
-rollDie :: IO Roll
-rollDie = randomRIO (Roll 1, Roll 6)
 
 
 startGame :: IO ()
