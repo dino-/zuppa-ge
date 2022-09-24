@@ -7,7 +7,7 @@ module Zuppa.Game
 import Lens.Micro.Platform ( (+~), (%~), (^.), makeLenses, to )
 import Text.Printf ( printf )
 
-import Zuppa.Dice ( Roll (..), rollDie )
+import Zuppa.Dice ( Roll (..), RollD6, rollDie )
 
 
 newtype Scandal = Scandal Int
@@ -23,7 +23,7 @@ data GameData = GameData
   { _gdScandal :: Scandal
   , _gdObsession :: Obsession
   , _gdFoodStores :: FoodStores
-  , _gdRollHistory :: [Roll]
+  , _gdRollHistory :: [RollD6]
   }
   deriving (Eq, Show)
 
@@ -56,10 +56,10 @@ data GameState
   deriving (Show, Eq)
 
 data GameEvent
-  = ENewTurn Roll
-  | EDesperation Roll
-  | EPeeking Roll
-  | EAntics Roll
+  = ENewTurn RollD6
+  | EDesperation RollD6
+  | EPeeking RollD6
+  | EAntics RollD6
   | EEndConditions
   deriving (Show, Eq)
 
@@ -118,7 +118,7 @@ ynChoice s = do
   pure True
 
 
-desperationLookup :: GameData -> Roll -> IO GameData
+desperationLookup :: GameData -> RollD6 -> IO GameData
 desperationLookup oldGd roll = do
   let gd = gdRollHistory %~ (roll :) $ oldGd
   (msg, adjustedGd) <- case roll of
@@ -146,7 +146,7 @@ desperationLookup oldGd roll = do
   pure adjustedGd
 
 
-peekingLookup :: GameData -> Roll -> IO GameData
+peekingLookup :: GameData -> RollD6 -> IO GameData
 peekingLookup oldGd roll = do
   let gd = gdRollHistory %~ (roll :) $ oldGd
   let (msg, adjustedGd) = case roll of
@@ -174,7 +174,7 @@ peekingLookup oldGd roll = do
   pure adjustedGd
 
 
-anticsLookup :: GameData -> Roll -> IO GameData
+anticsLookup :: GameData -> RollD6 -> IO GameData
 anticsLookup oldGd roll = do
   let gd = gdRollHistory %~ (roll :) $ oldGd
   let (msg, adjustedGd) = case roll of
@@ -206,7 +206,7 @@ startGame :: IO ()
 startGame = gameLoop SInitGame
 
 
-hasItBeenFiveWeeks :: [Roll] -> Bool
+hasItBeenFiveWeeks :: [RollD6] -> Bool
 hasItBeenFiveWeeks rolls = length rolls >= 3 && (all (== Roll 5) . take 3 $ rolls)
 
 
