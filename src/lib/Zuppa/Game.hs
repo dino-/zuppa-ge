@@ -235,41 +235,33 @@ endConditionsMet gd
   | otherwise = pure False
 
 
+guardEndConditions :: GameData -> IO (Maybe GameEvent) -> IO (Maybe GameEvent)
+guardEndConditions gd action = do
+  ec <- endConditionsMet gd
+  if ec
+    then pure $ Just EEndConditions
+    else action
+
+
 gameLoop :: GameState -> IO ()
 gameLoop state = do
   -- Compute the next GameEvent based on the current GameState and analysis of the GameData
   mevent <- case state of
     SInitGame -> Just . ENewTurn <$> rollDie
-    SStartTurn gd -> do
-      ec <- endConditionsMet gd
-      if ec
-        then pure $ Just EEndConditions
-        else do
-          let roll = gd ^. gdRollHistory . to head
-          let eventConstructor = case roll of
-                Roll 1 -> EDesperation
-                Roll 2 -> EDesperation
-                Roll 3 -> EPeeking
-                Roll 4 -> EPeeking
-                Roll 5 -> EAntics
-                Roll 6 -> EAntics
-                _ -> EDesperation
-          pure . Just . eventConstructor $ roll
-    SDesperation gd -> do
-      ec <- endConditionsMet gd
-      if ec
-        then pure $ Just EEndConditions
-        else Just . ENewTurn <$> rollDie
-    SPeeking gd -> do
-      ec <- endConditionsMet gd
-      if ec
-        then pure $ Just EEndConditions
-        else Just . ENewTurn <$> rollDie
-    SAntics gd -> do
-      ec <- endConditionsMet gd
-      if ec
-        then pure $ Just EEndConditions
-        else Just . ENewTurn <$> rollDie
+    SStartTurn gd -> guardEndConditions gd $ do
+      let roll = gd ^. gdRollHistory . to head
+      let eventConstructor = case roll of
+            Roll 1 -> EDesperation
+            Roll 2 -> EDesperation
+            Roll 3 -> EPeeking
+            Roll 4 -> EPeeking
+            Roll 5 -> EAntics
+            Roll 6 -> EAntics
+            _ -> EDesperation
+      pure . Just . eventConstructor $ roll
+    SDesperation gd -> guardEndConditions gd $ Just . ENewTurn <$> rollDie
+    SPeeking gd -> guardEndConditions gd $ Just . ENewTurn <$> rollDie
+    SAntics gd -> guardEndConditions gd $ Just . ENewTurn <$> rollDie
     SEnded -> pure Nothing
 
   maybe (pure ()) (\event -> do
