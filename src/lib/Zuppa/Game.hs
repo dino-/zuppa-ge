@@ -120,7 +120,7 @@ desperationLookup :: GameData -> RollD6 -> IO GameData
 desperationLookup oldGd roll = do
   display "---"
   display "Desperation mounts..."
-  let gd = gdRollHistory %~ (roll :) $ oldGd
+  let gd = addRoll roll oldGd
   (msg, adjustedGd) <- case roll of
     Roll 1 -> pure
       ( "Rats. Rats in your basement"
@@ -150,7 +150,7 @@ peekingLookup :: GameData -> RollD6 -> IO GameData
 peekingLookup oldGd roll = do
   display "---"
   display "Peeking through the curtains..."
-  let gd = gdRollHistory %~ (roll :) $ oldGd
+  let gd = addRoll roll oldGd
   let (msg, adjustedGd) = case roll of
         Roll 1 ->
           ( "A little matchstick girl dies on your lawn. In front of him."
@@ -180,7 +180,7 @@ anticsLookup :: GameData -> RollD6 -> IO GameData
 anticsLookup oldGd roll = do
   display "---"
   display "Hans' antics..."
-  let gd = gdRollHistory %~ (roll :) $ oldGd
+  let gd = addRoll roll oldGd
   let (msg, adjustedGd) = case roll of
         Roll 1 ->
           ( "He's naked. He claims the clothes are visible."
@@ -239,12 +239,12 @@ endConditionsMet gd
   | otherwise = pure False
 
 
-guardEndConditions :: GameData -> IO (Maybe GameEvent) -> IO (Maybe GameEvent)
-guardEndConditions gd action = do
+checkAndRoll :: GameData -> IO (Maybe GameEvent)
+checkAndRoll gd = do
   ec <- endConditionsMet gd
   if ec
     then pure $ Just EEndConditions
-    else action
+    else Just . ERoll <$> rollDie
 
 
 gameLoop :: GameState -> IO ()
@@ -252,10 +252,10 @@ gameLoop state = do
   -- Compute the next GameEvent based on the current GameState and analysis of the GameData
   mevent <- case state of
     SInitGame -> Just . ERoll <$> rollDie
-    SStartTurn gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
-    SDesperation gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
-    SPeeking gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
-    SAntics gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
+    SStartTurn gd -> checkAndRoll gd
+    SDesperation gd -> checkAndRoll gd
+    SPeeking gd -> checkAndRoll gd
+    SAntics gd -> checkAndRoll gd
     SEnded -> pure Nothing
 
   maybe (pure ()) (\event -> do
