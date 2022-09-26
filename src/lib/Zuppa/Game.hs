@@ -4,7 +4,7 @@ module Zuppa.Game
   ( startGame
   ) where
 
-import Lens.Micro.Platform ( (+~), (%~), (^.), makeLenses, to )
+import Lens.Micro.Platform ( (+~), (%~), (^.), makeLenses )
 import Text.Printf ( printf )
 
 import Zuppa.Dice ( Roll (..), RollD6, rollDie )
@@ -56,46 +56,44 @@ data GameState
   deriving (Show, Eq)
 
 data GameEvent
-  = ENewTurn RollD6
-  | EDesperation RollD6
-  | EPeeking RollD6
-  | EAntics RollD6
+  = ERoll RollD6
   | EEndConditions
   deriving (Show, Eq)
 
 
+addRoll :: RollD6 -> GameData -> GameData
+addRoll roll gd = (gdRollHistory %~ (roll :)) gd
+
+
 evalGame :: GameState -> GameEvent -> IO GameState
 
-evalGame SInitGame (ENewTurn roll) =
-  pure . SStartTurn . (gdRollHistory %~ (roll :)) $ initialData
+evalGame SInitGame (ERoll roll) =
+  pure . SStartTurn . addRoll roll $ initialData
 
-evalGame (SStartTurn gd) (EDesperation roll) = do
-  display "---"
-  display "Desperation mounts..."
-  pure . SDesperation . (gdRollHistory %~ (roll :)) $ gd
+evalGame (SStartTurn gd) (ERoll roll) = do
+  let stateConstructor = case roll of
+        Roll 1 -> SDesperation
+        Roll 2 -> SDesperation
+        Roll 3 -> SPeeking
+        Roll 4 -> SPeeking
+        Roll 5 -> SAntics
+        Roll 6 -> SAntics
+        _ -> SDesperation
+  pure . stateConstructor . addRoll roll $ gd
 
-evalGame (SStartTurn gd) (EPeeking roll) = do
-  display "---"
-  display "Peeking through the curtains..."
-  pure . SPeeking . (gdRollHistory %~ (roll :)) $ gd
-
-evalGame (SStartTurn gd) (EAntics roll) = do
-  display "---"
-  display "Hans' antics..."
-  pure . SAntics . (gdRollHistory %~ (roll :)) $ gd
-
-evalGame (SDesperation gd) (ENewTurn roll) = do
+evalGame (SDesperation gd) (ERoll roll) = do
   newGd <- desperationLookup gd roll
   pure $ SStartTurn newGd
 
-evalGame (SPeeking gd) (ENewTurn roll) = do
+evalGame (SPeeking gd) (ERoll roll) = do
   newGd <- peekingLookup gd roll
   pure $ SStartTurn newGd
 
-evalGame (SAntics gd) (ENewTurn roll) = do
+evalGame (SAntics gd) (ERoll roll) = do
   newGd <- anticsLookup gd roll
   pure $ SStartTurn newGd
 
+-- We can end the game from any state
 evalGame _ EEndConditions = pure SEnded
 
 evalGame state _ = pure state
@@ -120,6 +118,8 @@ ynChoice s = do
 
 desperationLookup :: GameData -> RollD6 -> IO GameData
 desperationLookup oldGd roll = do
+  display "---"
+  display "Desperation mounts..."
   let gd = gdRollHistory %~ (roll :) $ oldGd
   (msg, adjustedGd) <- case roll of
     Roll 1 -> pure
@@ -140,7 +140,7 @@ desperationLookup oldGd roll = do
     Roll 6 -> pure
       ( "More of your food spoils. How long can this go on?"
       , adjustFoodStores (-1) gd )
-    _ -> pure ("not yet implemented", gd)
+    _ -> pure ("impossible case", gd)
   display msg
   displayGameData adjustedGd
   pure adjustedGd
@@ -148,6 +148,8 @@ desperationLookup oldGd roll = do
 
 peekingLookup :: GameData -> RollD6 -> IO GameData
 peekingLookup oldGd roll = do
+  display "---"
+  display "Peeking through the curtains..."
   let gd = gdRollHistory %~ (roll :) $ oldGd
   let (msg, adjustedGd) = case roll of
         Roll 1 ->
@@ -168,7 +170,7 @@ peekingLookup oldGd roll = do
         Roll 6 ->
           ( "He catches a glimpse of you."
           , adjustObsession 1 gd )
-        _ -> ("not yet implemented", gd)
+        _ -> ("impossible case", gd)
   display msg
   displayGameData adjustedGd
   pure adjustedGd
@@ -176,6 +178,8 @@ peekingLookup oldGd roll = do
 
 anticsLookup :: GameData -> RollD6 -> IO GameData
 anticsLookup oldGd roll = do
+  display "---"
+  display "Hans' antics..."
   let gd = gdRollHistory %~ (roll :) $ oldGd
   let (msg, adjustedGd) = case roll of
         Roll 1 ->
@@ -196,7 +200,7 @@ anticsLookup oldGd roll = do
         Roll 6 ->
           ( "He puts his mouth to the letterbox and screams."
           , adjustScandal 1 gd )
-        _ -> ("not yet implemented", gd)
+        _ -> ("impossible case", gd)
   display msg
   displayGameData adjustedGd
   pure adjustedGd
@@ -247,21 +251,11 @@ gameLoop :: GameState -> IO ()
 gameLoop state = do
   -- Compute the next GameEvent based on the current GameState and analysis of the GameData
   mevent <- case state of
-    SInitGame -> Just . ENewTurn <$> rollDie
-    SStartTurn gd -> guardEndConditions gd $ do
-      let roll = gd ^. gdRollHistory . to head
-      let eventConstructor = case roll of
-            Roll 1 -> EDesperation
-            Roll 2 -> EDesperation
-            Roll 3 -> EPeeking
-            Roll 4 -> EPeeking
-            Roll 5 -> EAntics
-            Roll 6 -> EAntics
-            _ -> EDesperation
-      pure . Just . eventConstructor $ roll
-    SDesperation gd -> guardEndConditions gd $ Just . ENewTurn <$> rollDie
-    SPeeking gd -> guardEndConditions gd $ Just . ENewTurn <$> rollDie
-    SAntics gd -> guardEndConditions gd $ Just . ENewTurn <$> rollDie
+    SInitGame -> Just . ERoll <$> rollDie
+    SStartTurn gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
+    SDesperation gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
+    SPeeking gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
+    SAntics gd -> guardEndConditions gd $ Just . ERoll <$> rollDie
     SEnded -> pure Nothing
 
   maybe (pure ()) (\event -> do
